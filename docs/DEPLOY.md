@@ -1,6 +1,6 @@
 # Hướng dẫn triển khai lên server (Ubuntu + pm2)
 
-Cấu hình email xem riêng tại [EMAIL.md](EMAIL.md).
+Cấu hình email: [EMAIL.md](EMAIL.md). Thông tin máy ảo thực tế (cổng DB, phiên bản phần mềm…): [SERVER.md](SERVER.md).
 
 ## 1. Mô hình
 
@@ -10,7 +10,7 @@ Máy ảo Ubuntu trên Proxmox, IP nội bộ `172.20.0.2`. OPNsense chuyển c�
 |---|---|---|
 | `8601` | `8601` | Backend API (`teacher-api`) — cho mobile app sau này |
 | `8602` | `8602` | Giao diện web (`teacher-web`) — **người dùng mở địa chỉ này** |
-| `8603` | PostgreSQL | **Không nên mở**, xem mục 6 |
+| `8603` | *(không dùng)* | PostgreSQL chạy nội bộ cổng `8507`, **không mở ra ngoài**, xem mục 6 |
 
 ```
 Trình duyệt → 103.116.104.4:8602  teacher-web (frontend/server.js)
@@ -41,7 +41,7 @@ Các file `.env*` **không có trên git** → phải copy lên server bằng ta
 
 | Biến | Cần làm |
 |---|---|
-| `DATABASE_URL` | Thay `<mat-khau-db>` bằng mật khẩu đặt trong `create_database.sql`. Cổng = cổng PostgreSQL thật sự chạy trong máy ảo (mặc định `5432`; nếu đã đổi sang `8603` trong `postgresql.conf` thì sửa thành `8603`). Giữ host `127.0.0.1` |
+| `DATABASE_URL` | Thay `<mat-khau-db>` bằng mật khẩu đặt trong `create_database.sql`. Cổng `8507` (PostgreSQL 16 trên máy ảo, xem [SERVER.md](SERVER.md)). Giữ host `127.0.0.1` |
 | `OPENAI_API_KEY` | Dán key OpenAI. Để trống → các chức năng AI tự tắt |
 | `APP_URL` | Đã đặt `http://103.116.104.4:8602` — dùng để tạo link trong email |
 | `CORS_ORIGIN` | Đã đặt IP public + IP nội bộ cổng 8602 |
@@ -61,8 +61,8 @@ git clone <repo> teacher && cd teacher
 
 # 3. Database (PostgreSQL đã cài trên máy ảo)
 #    Sửa 'change-this-password' trong create_database.sql trước khi chạy
-sudo -u postgres psql -f backend/database/create_database.sql
-psql "postgres://teacher_app:<mat-khau-db>@127.0.0.1:5432/teacher_workspace" -f backend/database/schema.sql
+sudo -u postgres psql -p 8507 -f backend/database/create_database.sql
+psql "postgres://teacher_app:<mat-khau-db>@127.0.0.1:8507/teacher_workspace" -f backend/database/schema.sql
 
 # 4. File env: copy backend/.env.deploy lên server (scp/WinSCP), rồi:
 echo "APP_ENV=deploy" > backend/.env
@@ -91,7 +91,7 @@ Rồi mở **http://103.116.104.4:8602** và đăng nhập tài khoản quản t
 
 Hệ thống bắt đổi mật khẩu ngay lần đầu. Sau đó vào **Người dùng** đổi email admin thành email thật.
 
-> **Không chạy `npm run seed` trên server** (tạo tài khoản demo mật khẩu `123456`). Với `APP_ENV=deploy` lệnh này đã bị chặn.
+> **Không chạy `npm run seed` trên server** (tạo tài khoản demo mật khẩu `12345678`). Với `APP_ENV=deploy` lệnh này đã bị chặn.
 
 ## 5. Cập nhật code
 
@@ -119,7 +119,7 @@ Sau khi chỉ sửa `backend/.env.deploy`: `pm2 restart teacher-api`.
 
 - **Không mở PostgreSQL ra Internet (cổng 8603).** Backend kết nối qua `127.0.0.1` nên không cần. Nếu vẫn muốn quản trị database từ xa: trong OPNsense chỉ cho phép IP của bạn, dùng mật khẩu mạnh và `scram-sha-256` trong `pg_hba.conf`. Tốt hơn là dùng SSH tunnel:
   ```bash
-  ssh -L 5432:127.0.0.1:5432 <user>@<server>    # rồi kết nối DB tới localhost:5432 trên máy bạn
+  ssh -p 2222 -L 15432:127.0.0.1:8507 ubuntu@103.116.104.4   # rồi kết nối DB tới localhost:15432 trên máy bạn
   ```
 - **Đang chạy HTTP bằng IP: mật khẩu đi qua mạng không được mã hóa.** Khi có tên miền, đặt HTTPS phía trước cổng 8602 (Caddy / Nginx trên máy ảo, hoặc HAProxy trên OPNsense) rồi đổi `APP_URL` và `CORS_ORIGIN` thành `https://<ten-mien>`. Backend tự bật lại HSTS và CSP đầy đủ khi `APP_URL` bắt đầu bằng `https://`.
 - Nút **"Chụp bài"** vẫn mở được camera điện thoại qua HTTP (dùng ô chọn ảnh của hệ điều hành).
@@ -130,7 +130,7 @@ Sau khi chỉ sửa `backend/.env.deploy`: `pm2 restart teacher-api`.
 Sao lưu định kỳ **database** và thư mục **`backend/uploads`** (ảnh bài làm, học liệu). Ví dụ:
 
 ```bash
-pg_dump "postgres://teacher_app:<mat-khau-db>@127.0.0.1:5432/teacher_workspace" -Fc -f backup_$(date +%F).dump
+pg_dump "postgres://teacher_app:<mat-khau-db>@127.0.0.1:8507/teacher_workspace" -Fc -f backup_$(date +%F).dump
 tar czf uploads_$(date +%F).tar.gz backend/uploads
 ```
 

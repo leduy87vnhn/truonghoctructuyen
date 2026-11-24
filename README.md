@@ -38,9 +38,9 @@ Không cấu hình SMTP → email (xác nhận, đặt lại mật khẩu…) đ
 | Tài khoản | Mật khẩu | Ghi chú |
 |---|---|---|
 | `admin@teacher.local` | `Admin@123` | **Quản trị hệ thống** — có trong migration, bắt buộc đổi mật khẩu lần đầu |
-| `lan@demo.vn` | `123456` | Giáo viên (dữ liệu mẫu từ `npm run seed`): không gian cá nhân + Trường THCS A |
-| `admin@demo.vn` | `123456` | Quản trị tổ chức "Trường THCS A" (dữ liệu mẫu) |
-| `hs@demo.vn` | `123456` | Học sinh lớp Toán 8A1 (dữ liệu mẫu) |
+| `lan@demo.vn` | `12345678` | Giáo viên (dữ liệu mẫu từ `npm run seed`): không gian cá nhân + Trường THCS A |
+| `admin@demo.vn` | `12345678` | Quản trị tổ chức "Trường THCS A" (dữ liệu mẫu) |
+| `hs@demo.vn` | `12345678` | Học sinh lớp Toán 8A1 (dữ liệu mẫu) |
 
 > Tài khoản demo chỉ để thử. Trên server thật **không chạy `npm run seed`**.
 
@@ -94,8 +94,8 @@ Có 2 cách (chọn một):
 
 **Cách A — file SQL (dùng psql):** các file nằm trong [backend/database/](backend/database/)
 ```bash
-psql -U postgres -f backend/database/create_database.sql                     # tạo user + DB UTF8 (sửa mật khẩu trong file trước!)
-psql -U teacher_app -d teacher_workspace -f backend/database/schema.sql      # bảng + phân quyền + tài khoản admin
+sudo -u postgres psql -p 8507 -f backend/database/create_database.sql                       # tạo user + DB UTF8 (sửa mật khẩu trong file trước!)
+psql -h 127.0.0.1 -p 8507 -U teacher_app -d teacher_workspace -f backend/database/schema.sql   # bảng + phân quyền + tài khoản admin
 ```
 `schema.sql` được sinh từ các migration bằng `npm run db:export-sql` — **không sửa tay**; khi thêm migration mới hãy chạy lại lệnh này.
 
@@ -163,7 +163,7 @@ frontend/src/
   pages/               các màn hình (class/, admin/, student/)
 frontend/server.js       server production cho giao diện + chuyển tiếp /api sang backend
 ecosystem.config.cjs     cấu hình pm2 (teacher-api :8601, teacher-web :8602)
-docs/                    DEPLOY.md (triển khai), EMAIL.md (cấu hình email)
+docs/                    DEPLOY.md (triển khai), EMAIL.md (email), SERVER.md (thông tin máy ảo)
 docker-compose.yml       PostgreSQL + Mailpit cho dev
 docker-compose.mail.yml  Postfix (mail server tự dựng) cho server thật
 ```

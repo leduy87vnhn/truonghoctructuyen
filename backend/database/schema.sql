@@ -3,8 +3,8 @@
 -- Sinh bởi: npm run db:export-sql   |   Migrations: 001_init.sql, 002_admin_email.sql
 --
 -- Cách dùng trên server (PostgreSQL 13+):
---   1) psql -U postgres -f create_database.sql
---   2) psql -U postgres -d teacher_workspace -f schema.sql
+--   1) sudo -u postgres psql -p <cổng-postgres> -f create_database.sql
+--   2) psql -h 127.0.0.1 -p <cổng-postgres> -U teacher_app -d teacher_workspace -f schema.sql   (PHẢI chạy bằng teacher_app để app là chủ các bảng)
 --
 -- Tài khoản quản trị hệ thống mặc định:
 --   Email: admin@teacher.local   Mật khẩu: Admin@123   (bắt buộc đổi khi đăng nhập lần đầu)

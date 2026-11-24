@@ -3,7 +3,7 @@ import { config } from '../config.js';
 import { createApp } from '../app.js';
 
 if (config.appEnv === 'deploy') {
-  console.error('Từ chối chạy: APP_ENV=deploy. Lệnh này tạo tài khoản demo (mật khẩu 123456), chỉ dùng trên máy dev.');
+  console.error('Từ chối chạy: APP_ENV=deploy. Lệnh này tạo tài khoản demo (mật khẩu 12345678), chỉ dùng trên máy dev.');
   process.exit(1);
 }
 import { pool } from './pool.js';
@@ -24,7 +24,7 @@ async function call(method, path, body) {
   if (!res.ok) throw new Error(`${method} ${path} -> ${res.status} ${JSON.stringify(data)}`);
   return data;
 }
-const login = async (email) => (token = (await call('POST', '/auth/login', { email, password: '123456' })).token);
+const login = async (email) => (token = (await call('POST', '/auth/login', { email, password: '12345678' })).token);
 
 try {
   await login('lan@demo.vn');

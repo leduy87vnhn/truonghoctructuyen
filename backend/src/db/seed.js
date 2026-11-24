@@ -4,13 +4,13 @@ import { config } from '../config.js';
 import { createApp } from '../app.js';
 
 if (config.appEnv === 'deploy') {
-  console.error('Từ chối chạy: APP_ENV=deploy. Lệnh này tạo tài khoản demo (mật khẩu 123456), chỉ dùng trên máy dev.');
+  console.error('Từ chối chạy: APP_ENV=deploy. Lệnh này tạo tài khoản demo (mật khẩu 12345678), chỉ dùng trên máy dev.');
   process.exit(1);
 }
 import { migrate } from './migrate.js';
 import { pool, query } from './pool.js';
 
-const PASSWORD = '123456';
+const PASSWORD = '12345678';
 
 async function main() {
   await migrate({ log: () => {} });

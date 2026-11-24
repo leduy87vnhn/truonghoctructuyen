@@ -16,8 +16,8 @@ let sql = `-- ==================================================================
 -- Sinh bởi: npm run db:export-sql   |   Migrations: ${files.join(', ')}
 --
 -- Cách dùng trên server (PostgreSQL 13+):
---   1) psql -U postgres -f create_database.sql
---   2) psql -U postgres -d teacher_workspace -f schema.sql
+--   1) sudo -u postgres psql -p <cổng-postgres> -f create_database.sql
+--   2) psql -h 127.0.0.1 -p <cổng-postgres> -U teacher_app -d teacher_workspace -f schema.sql   (PHẢI chạy bằng teacher_app để app là chủ các bảng)
 --
 -- Tài khoản quản trị hệ thống mặc định:
 --   Email: admin@teacher.local   Mật khẩu: Admin@123   (bắt buộc đổi khi đăng nhập lần đầu)
@@ -45,17 +45,23 @@ for (const [key, role] of Object.entries(SYSTEM_ROLES)) {
 sql += '\nCOMMIT;\n';
 
 const createDb = `-- Tạo user và database (chạy bằng tài khoản postgres). Đổi mật khẩu trước khi chạy!
--- psql -U postgres -f create_database.sql
+-- sudo -u postgres psql -p <cổng-postgres> -f create_database.sql   (server hbsf-web: cổng 8507)
 CREATE ROLE teacher_app WITH LOGIN PASSWORD 'change-this-password';
+-- PostgreSQL 15+ (server hbsf-web: PG 16): sắp xếp tên theo tiếng Việt (A Ă Â B C D Đ E Ê ... O Ô Ơ ...)
 CREATE DATABASE teacher_workspace
   WITH OWNER = teacher_app
        ENCODING = 'UTF8'
+       LOCALE_PROVIDER = icu
+       ICU_LOCALE = 'vi-VN'
+       LOCALE = 'C'
        TEMPLATE = template0;
+-- PostgreSQL 13/14 (không hỗ trợ ICU_LOCALE): thay lệnh trên bằng
+--   CREATE DATABASE teacher_workspace WITH OWNER = teacher_app ENCODING = 'UTF8' TEMPLATE = template0;
 -- Lưu ý: ENCODING phải là UTF8 để lưu tiếng Việt.
--- Sau đó đặt trong backend/.env:
---   DATABASE_URL=postgres://teacher_app:change-this-password@localhost:5432/teacher_workspace
+-- Sau đó đặt trong backend/.env.deploy:
+--   DATABASE_URL=postgres://teacher_app:change-this-password@127.0.0.1:<cổng-postgres>/teacher_workspace
 -- và chạy schema.sql bằng chính user teacher_app:
---   psql -U teacher_app -d teacher_workspace -f schema.sql
+--   psql -h 127.0.0.1 -p <cổng-postgres> -U teacher_app -d teacher_workspace -f schema.sql
 `;
 
 await fs.mkdir(outDir, { recursive: true });
