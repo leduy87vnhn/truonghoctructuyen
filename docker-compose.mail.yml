@@ -1,0 +1,30 @@
+# Mail server tự dựng (Postfix) để chạy TRÊN SERVER THẬT — gửi thẳng tới hộp thư người nhận.
+#
+#   1. Sửa MAIL_DOMAIN / MAIL_HOSTNAME bên dưới thành tên miền của bạn
+#   2. docker compose -f docker-compose.mail.yml up -d
+#   3. Lấy khóa DKIM để khai báo DNS:
+#        docker compose -f docker-compose.mail.yml logs postfix | grep -A3 "TXT"
+#      (hoặc xem file trong volume dkim-keys: <MAIL_DOMAIN>.txt)
+#   4. Khai báo DNS (xem README mục "Mail server tự dựng")
+#
+# Backend kết nối qua 127.0.0.1:2525 (cổng chỉ mở cho máy chủ, không lộ ra Internet).
+# Yêu cầu: nhà cung cấp VPS cho phép kết nối RA cổng 25.
+services:
+  postfix:
+    # Nên ghim phiên bản cụ thể sau khi chạy ổn (xem tag trên hub.docker.com/r/boky/postfix)
+    image: boky/postfix:latest
+    restart: unless-stopped
+    environment:
+      ALLOWED_SENDER_DOMAINS: "ten-mien-cua-ban.vn"   # = MAIL_DOMAIN, phải trùng tên miền trong MAIL_FROM
+      HOSTNAME: "mail.ten-mien-cua-ban.vn"            # = MAIL_HOSTNAME, trùng bản ghi PTR (reverse DNS) của IP server
+      DKIM_AUTOGENERATE: "true"                       # tự sinh khóa DKIM, ký mọi thư gửi đi
+      # Không đặt RELAYHOST => Postfix gửi thẳng tới MX của người nhận
+    ports:
+      - "127.0.0.1:2525:587"
+    volumes:
+      - dkim-keys:/etc/opendkim/keys
+      - mail-spool:/var/spool/postfix
+
+volumes:
+  dkim-keys:
+  mail-spool:

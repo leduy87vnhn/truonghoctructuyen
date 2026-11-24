@@ -1,0 +1,33 @@
+{
+  "name": "teacher-workspace-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Teacher Workspace API - Node.js modular monolith",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "migrate": "node src/db/migrate.js",
+    "seed": "node src/db/seed.js",
+    "smoke": "node src/db/smoke.js",
+    "db:export-sql": "node src/db/export-sql.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "express": "^5.1.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.0",
+    "nodemailer": "^6.10.1",
+    "openai": "^4.77.0",
+    "pg": "^8.13.1",
+    "zod": "^3.24.1"
+  }
+}

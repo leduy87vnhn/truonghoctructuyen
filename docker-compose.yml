@@ -1,0 +1,30 @@
+# Hạ tầng cho môi trường phát triển / thử nghiệm:
+#   docker compose up -d
+# - PostgreSQL 16 (UTF8)  : localhost:5432  (postgres / postgres, DB teacher_workspace)
+# - Mailpit (mail server) : SMTP localhost:1025, giao diện xem thư http://localhost:8025
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: teacher_workspace
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  mail:
+    image: axllent/mailpit:v1.21
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+volumes:
+  pgdata:
