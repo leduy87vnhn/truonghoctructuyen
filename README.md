@@ -69,17 +69,11 @@ Thứ tự ưu tiên: biến môi trường hệ thống > `.env` > `.env.<APP_E
 | `REQUIRE_EMAIL_VERIFICATION` | `true`: tài khoản tự đăng ký phải bấm link xác nhận email mới đăng nhập được |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Máy chủ gửi mail |
 
-### Mail server khi chạy thật
+### Email
 
-**Cách 1 — tự dựng (Postfix, có sẵn [docker-compose.mail.yml](docker-compose.mail.yml))** — `.env.deploy` đã cấu hình sẵn cho cách này (`SMTP_HOST=127.0.0.1`, `SMTP_PORT=2525`).
+Cách chọn mail server (Gmail, Postfix tự dựng, dịch vụ gửi mail), cấu hình và xử lý sự cố: **[docs/EMAIL.md](docs/EMAIL.md)**.
 
-Điều kiện bắt buộc:
-1. **Có tên miền** (vd. `truonghoc.vn`). Không có tên miền thì Gmail/Outlook **từ chối thẳng** (không phải vào Spam) vì từ 2024 họ bắt buộc thư phải qua SPF hoặc DKIM của một tên miền.
-2. **VPS mở cổng 25 chiều ra.** AWS, Google Cloud, Azure, DigitalOcean… mặc định chặn cổng 25 (phải gửi yêu cầu mở); nhiều VPS Việt Nam mở sẵn — hỏi nhà cung cấp.
-3. **Khai báo DNS** (tại nơi quản lý tên miền), với `1.2.3.4` là IP server:
-
-| Bản ghi | Tên | Giá trị |
-|---|---|---|
+---|---|---|
 | A | `mail` | `1.2.3.4` |
 | TXT (SPF) | `@` | `v=spf1 ip4:1.2.3.4 -all` |
 | TXT (DKIM) | `mail._domainkey` | nội dung khóa do container sinh ra (xem hướng dẫn trong docker-compose.mail.yml) |
@@ -113,16 +107,17 @@ Sau khi đăng nhập `admin@teacher.local` lần đầu: đổi mật khẩu �
 
 ---
 
-## 4. Triển khai production (1 server)
+## 4. Triển khai production (Ubuntu + pm2)
 
+Hướng dẫn đầy đủ (cổng, file env, cài đặt lần đầu, cập nhật, bảo mật, sao lưu, xử lý sự cố): **[docs/DEPLOY.md](docs/DEPLOY.md)**.
+
+Tóm tắt:
 ```bash
-git clone <repo> && cd <repo>
-# copy lên server: backend/.env.deploy (đã điền giá trị thật) và tạo backend/.env chứa: APP_ENV=deploy
-cd frontend && npm ci && npm run build        # tạo frontend/dist
-cd ../backend && npm ci --omit=dev
-npm start                                      # API + phục vụ luôn giao diện tại cổng PORT
+(cd frontend && npm ci && npm run build)
+(cd backend && npm ci --omit=dev)
+echo "APP_ENV=deploy" > backend/.env          # + copy backend/.env.deploy lên server
+pm2 start ecosystem.config.cjs                 # web :8602, API :8601
 ```
-Backend tự phục vụ `frontend/dist` nếu thư mục này tồn tại. Đặt Nginx / Caddy phía trước để có HTTPS (bắt buộc để camera điện thoại hoạt động khi chụp bài), và đặt `APP_URL`, `CORS_ORIGIN` đúng tên miền. Sao lưu định kỳ database và thư mục `backend/uploads` (ảnh bài làm, học liệu).
 
 ---
 
@@ -166,6 +161,9 @@ frontend/src/
   api.js, auth.jsx, ui.jsx, styles.css, i18n/{vi,en}.js
   layout/AppLayout.jsx sidebar (desktop) + bottom nav 5 mục (mobile)
   pages/               các màn hình (class/, admin/, student/)
+frontend/server.js       server production cho giao diện + chuyển tiếp /api sang backend
+ecosystem.config.cjs     cấu hình pm2 (teacher-api :8601, teacher-web :8602)
+docs/                    DEPLOY.md (triển khai), EMAIL.md (cấu hình email)
 docker-compose.yml       PostgreSQL + Mailpit cho dev
 docker-compose.mail.yml  Postfix (mail server tự dựng) cho server thật
 ```

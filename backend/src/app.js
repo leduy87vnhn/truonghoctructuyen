@@ -23,7 +23,23 @@ import { materialsRouter, notificationsRouter, studentsRouter } from './modules/
 export function createApp() {
   const app = express();
   app.set('trust proxy', 1);
-  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      // Site có thể chạy qua HTTP bằng IP (chưa có tên miền/HTTPS) => không ép nâng cấp https, không gửi HSTS
+      strictTransportSecurity: config.https,
+      crossOriginOpenerPolicy: config.https,
+      originAgentCluster: config.https,
+      contentSecurityPolicy: {
+        directives: {
+          'upgrade-insecure-requests': config.https ? [] : null,
+          'img-src': ["'self'", 'data:', 'blob:'],
+          'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+          'font-src': ["'self'", 'data:', 'https://fonts.gstatic.com'],
+        },
+      },
+    }),
+  );
   app.use(cors({ origin: config.corsOrigin, credentials: true }));
   app.use(express.json({ limit: '2mb' }));
   if (config.env !== 'test') app.use(morgan('dev'));

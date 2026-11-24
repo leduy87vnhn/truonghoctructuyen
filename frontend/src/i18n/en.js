@@ -234,7 +234,7 @@ export default {
     lastLogin: 'Last sign-in', sendReset: 'Send password reset email', resendInvite: 'Resend invitation', resetSent: 'Email sent',
     setPassword: 'Set password', deleteConfirm: 'Permanently delete {{email}}? If the account has data, disable it instead.',
     systemSub: 'Email configuration, organizations and audit log', organizations: 'Organizations', audit: 'Audit log', mailServer: 'Mail server (SMTP)',
-    mailNotConfigured: 'SMTP is not configured — emails are printed to the server console (dev mode). Set SMTP_HOST... in backend/.env to send real email.',
+    mailNotConfigured: 'SMTP is not configured — emails are printed to the server console (dev mode). Set SMTP_HOST... in backend/.env.deploy (or .env.dev) to send real email — see docs/EMAIL.md.',
     verification: 'Require email verification on sign-up', sendTest: 'Send test', testSent: 'Test email sent', testLogged: 'Test email printed to console (SMTP not configured)',
     emailLogs: 'Email log', mailStatus: { sent: 'Sent', logged: 'Console', failed: 'Failed' }, mailFailed: '{{n}} emails failed in the last 7 days',
     orgAdmin: 'Organization admin', orgAdminHint: 'Choose an active teacher account',

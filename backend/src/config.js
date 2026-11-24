@@ -26,7 +26,11 @@ export const config = {
   appEnv,
   env: env.NODE_ENV || (appEnv === 'deploy' ? 'production' : 'development'),
   port: Number(env.PORT) || 4000,
+  host: env.HOST || '0.0.0.0',
   appUrl: env.APP_URL || 'http://localhost:5173',
+  get https() {
+    return this.appUrl.startsWith('https://');
+  },
   corsOrigin: (env.CORS_ORIGIN || 'http://localhost:5173').split(',').map((s) => s.trim()),
   databaseUrl: env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/teacher_workspace',
   jwtSecret: env.JWT_SECRET || 'dev-secret-change-me',
