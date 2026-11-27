@@ -32,7 +32,7 @@ Các cổng đang mở trên máy ảo (`sudo ss -lntp`) và cổng dành cho Te
 | `8506` | mọi địa chỉ | node (pm2) | Scoreboard |
 | `8507` | **mọi địa chỉ** (IPv4 + IPv6) | postgres | PostgreSQL 16 — dùng chung cho scoreboard và Teacher Workspace |
 | `8601` | mọi địa chỉ | pm2 `teacher-api` | **Teacher Workspace — API** (đang trống, sẵn sàng dùng) |
-| `8602` | mọi địa chỉ | pm2 `teacher-web` | **Teacher Workspace — giao diện** (đang trống, sẵn sàng dùng) |
+| `8602` | mọi địa chỉ | nginx (site `truonghoctructuyen`) | **Teacher Workspace — giao diện** + chuyển tiếp `/api` (đang trống, sẵn sàng dùng) |
 | `8603` | *(không có gì)* | — | Không dùng |
 | `53` | 127.0.0.53 / .54 | systemd-resolved | DNS nội bộ của Ubuntu |
 
@@ -82,15 +82,28 @@ Không trùng tên tiến trình, không trùng cổng với Teacher Workspace.
 
 | Mục | Giá trị |
 |---|---|
-| Database | `teacher_workspace` (tạo bởi [create_database.sql](../backend/database/create_database.sql)) |
-| User | `teacher_app` (không phải superuser, chỉ sở hữu database của mình) |
+| Database | **`truonghoctructuyen`** |
+| User | **`truonghoc_app`** (LOGIN, không superuser / createdb / createrole / replication) |
 | Sắp xếp | ICU `vi-VN` cho riêng database này (cluster mặc định `C.UTF-8` xếp "Đức", "Ánh" sau "Zoe") |
-| Kết nối | `postgres://teacher_app:<mat-khau-db>@127.0.0.1:8507/teacher_workspace` |
+| Kết nối (`backend/.env.deploy`) | `DATABASE_URL=postgres://truonghoc_app:<mat-khau-db>@127.0.0.1:8507/truonghoctructuyen` |
 
-Lệnh tạo:
+Lệnh đã dùng để tạo (`sudo -u postgres psql -p 8507 -d postgres`):
+```sql
+CREATE ROLE truonghoc_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+\password truonghoc_app
+
+CREATE DATABASE truonghoctructuyen
+  WITH OWNER = truonghoc_app
+       ENCODING = 'UTF8'
+       LOCALE_PROVIDER = icu
+       ICU_LOCALE = 'vi-VN'
+       LOCALE = 'C'
+       TEMPLATE = template0;
+```
+
+Tạo bảng: backend tự chạy migration khi khởi động (`pm2 start`), hoặc chạy tay bằng chính user app:
 ```bash
-sudo -u postgres psql -p 8507 -f backend/database/create_database.sql
-psql "postgres://teacher_app:<mat-khau-db>@127.0.0.1:8507/teacher_workspace" -f backend/database/schema.sql
+psql "postgres://truonghoc_app:<mat-khau-db>@127.0.0.1:8507/truonghoctructuyen" -f backend/database/schema.sql
 ```
 
 ## 5. Rủi ro bảo mật cần xử lý
@@ -109,13 +122,13 @@ psql "postgres://teacher_app:<mat-khau-db>@127.0.0.1:8507/teacher_workspace" -f 
 
 1. **Lấy bản code mới nhất**: thư mục code trên server chưa có `ecosystem.config.cjs`.
 2. **Đồng bộ pm2**: `pm2 update` (cài đặt 7.0.3, tiến trình đang chạy 6.0.14). Lệnh này **khởi động lại 2 ứng dụng scoreboard** (gián đoạn vài giây), nên chạy lúc ít người dùng.
-3. **Không có swap.** 15 GiB RAM là đủ; pm2 đã giới hạn `teacher-api` 600 MB và `teacher-web` 200 MB. Nếu muốn an toàn hơn:
+3. **Không có swap.** 15 GiB RAM là đủ; pm2 đã giới hạn `teacher-api` 600 MB (tự khởi động lại khi vượt). Nếu muốn an toàn hơn:
    ```bash
    sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile
    sudo mkswap /swapfile && sudo swapon /swapfile
    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
    ```
-4. **HTTPS sau này**: nginx đã có sẵn. Khi có tên miền, thêm một server block nginx (cổng 443, chứng chỉ Let's Encrypt qua `certbot`) chuyển tiếp tới `127.0.0.1:8602`, rồi đổi `APP_URL` trong `.env.deploy` thành `https://<ten-mien>`.
+4. **HTTPS sau này**: khi có tên miền, dùng `certbot --nginx` cho site `truonghoctructuyen` — xem [DEPLOY.md](DEPLOY.md) mục 6.
 
 ## 7. Chưa kiểm tra
 

@@ -107,16 +107,15 @@ Sau khi đăng nhập `admin@teacher.local` lần đầu: đổi mật khẩu �
 
 ---
 
-## 4. Triển khai production (Ubuntu + pm2)
+## 4. Triển khai production (Ubuntu + pm2 + nginx)
 
 Hướng dẫn đầy đủ (cổng, file env, cài đặt lần đầu, cập nhật, bảo mật, sao lưu, xử lý sự cố): **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 
-Tóm tắt:
+Tóm tắt: nginx phục vụ giao diện ở cổng 8602 và chuyển `/api` sang backend (pm2 `teacher-api`, cổng 8601).
 ```bash
-(cd frontend && npm ci && npm run build)
-(cd backend && npm ci --omit=dev)
 echo "APP_ENV=deploy" > backend/.env          # + copy backend/.env.deploy lên server
-pm2 start ecosystem.config.cjs                 # web :8602, API :8601
+bash deploy/update.sh                          # build, chép giao diện sang /var/www, reload teacher-api
+# lần đầu: cài site nginx deploy/nginx/truonghoctructuyen.conf (docs/DEPLOY.md bước 4)
 ```
 
 ---
@@ -161,8 +160,9 @@ frontend/src/
   api.js, auth.jsx, ui.jsx, styles.css, i18n/{vi,en}.js
   layout/AppLayout.jsx sidebar (desktop) + bottom nav 5 mục (mobile)
   pages/               các màn hình (class/, admin/, student/)
-frontend/server.js       server production cho giao diện + chuyển tiếp /api sang backend
-ecosystem.config.cjs     cấu hình pm2 (teacher-api :8601, teacher-web :8602)
+frontend/server.js       (dự phòng khi không dùng nginx) phục vụ giao diện + chuyển tiếp /api
+ecosystem.config.cjs     cấu hình pm2 (teacher-api :8601)
+deploy/                  nginx/truonghoctructuyen.conf (site :8602), update.sh (cập nhật server)
 docs/                    DEPLOY.md (triển khai), EMAIL.md (email), SERVER.md (thông tin máy ảo)
 docker-compose.yml       PostgreSQL + Mailpit cho dev
 docker-compose.mail.yml  Postfix (mail server tự dựng) cho server thật
