@@ -36,6 +36,13 @@ Các cổng đang mở trên máy ảo (`sudo ss -lntp`) và cổng dành cho Te
 | `8603` | *(không có gì)* | — | Không dùng |
 | `53` | 127.0.0.53 / .54 | systemd-resolved | DNS nội bộ của Ubuntu |
 
+**Tường lửa ufw đang bật** (khảo sát 2026-11-28). Các cổng được phép: `OpenSSH`, `80`, `443`, `2222`, `8505`, `8506`, `8507`, `8508` (cả IPv4 và IPv6). Teacher Workspace cần mở thêm:
+```bash
+sudo ufw allow 8602/tcp comment 'truonghoctructuyen web'
+sudo ufw allow 8601/tcp comment 'truonghoctructuyen api'
+```
+Thiếu 2 quy tắc này thì trên server `curl` vẫn chạy, nhưng mở từ bên ngoài sẽ không được. Quy tắc `8507/tcp` (PostgreSQL) đang mở cho mọi địa chỉ, xem mục 5.
+
 Chuyển cổng trên OPNsense cho Teacher Workspace:
 
 | Public | → Máy ảo | |
@@ -43,6 +50,8 @@ Chuyển cổng trên OPNsense cho Teacher Workspace:
 | `103.116.104.4:8601` | `172.20.0.2:8601` | API (cho mobile app sau này) |
 | `103.116.104.4:8602` | `172.20.0.2:8602` | **Người dùng mở địa chỉ này** |
 | `103.116.104.4:8603` | — | Không cần, nên xóa luật này |
+
+Ngày 2026-11-28: các luật NAT 8601/8602/8603 ban đầu bị đặt nhầm Redirect target IP là `172.10.0.2` (một máy khác). Phải là **`172.20.0.2`**. Bảng Firewall Rules thì đã đúng. Mỗi cổng cần đủ 3 thứ: luật NAT (Port Forward) + luật Firewall trên WAN + `ufw allow` trên máy ảo.
 
 ## 3. Phần mềm
 
@@ -108,7 +117,7 @@ psql "postgres://truonghoc_app:<mat-khau-db>@127.0.0.1:8507/truonghoctructuyen" 
 
 ## 5. Rủi ro bảo mật cần xử lý
 
-1. **PostgreSQL lắng nghe trên mọi địa chỉ.** Nếu OPNsense đang chuyển cổng `8507` ra Internet (giống cách scoreboard dùng `8505`/`8506`), thì database đang lộ ra ngoài, và user duy nhất là superuser `postgres`. Cần kiểm tra:
+1. **Database đang mở ra Internet (đã xác nhận 2026-11-28):** OPNsense có luật NAT `103.116.104.4:8507 → 172.20.0.2:8507` và luật Firewall cho phép 8507; PostgreSQL lắng nghe trên mọi địa chỉ; ufw cũng cho phép `8507/tcp` từ mọi nơi. Nên tắt luật NAT và luật Firewall 8507 trên OPNsense. Nếu không còn máy nào khác kết nối vào database, xóa quy tắc này: `sudo ufw delete allow 8507/tcp`. Nếu OPNsense đang chuyển cổng `8507` ra Internet (giống cách scoreboard dùng `8505`/`8506`), thì database đang lộ ra ngoài, và user duy nhất là superuser `postgres`. Cần kiểm tra:
    - Trong OPNsense: **Firewall → NAT → Port Forward**, xem có luật cho `8507` không. Nếu có, nên xóa hoặc chỉ cho phép IP của bạn.
    - Hoặc, nếu mọi ứng dụng dùng database đều chạy trên máy ảo này, cho PostgreSQL chỉ nghe nội bộ: trong `/etc/postgresql/16/main/postgresql.conf` đặt `listen_addresses = 'localhost'`, rồi `sudo systemctl restart postgresql`. Teacher Workspace kết nối qua `127.0.0.1` nên vẫn chạy bình thường. **Kiểm tra trước** xem scoreboard có kết nối từ máy khác không.
    - Quản trị database từ xa: dùng SSH tunnel thay vì mở cổng:
@@ -128,7 +137,8 @@ psql "postgres://truonghoc_app:<mat-khau-db>@127.0.0.1:8507/truonghoctructuyen" 
    sudo mkswap /swapfile && sudo swapon /swapfile
    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
    ```
-4. **HTTPS sau này**: khi có tên miền, dùng `certbot --nginx` cho site `truonghoctructuyen` — xem [DEPLOY.md](DEPLOY.md) mục 6.
+4. **Repo GitHub đang public**, nên `docs/` (gồm cả file này) ai cũng xem được. Xem [REPO-PRIVATE.md](REPO-PRIVATE.md).
+5. **HTTPS sau này**: khi có tên miền, dùng `certbot --nginx` cho site `truonghoctructuyen` — xem [DEPLOY.md](DEPLOY.md) mục 6.
 
 ## 7. Chưa kiểm tra
 
