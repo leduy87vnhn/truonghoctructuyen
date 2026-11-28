@@ -234,7 +234,7 @@ export default {
     lastLogin: 'Đăng nhập gần nhất', sendReset: 'Gửi email đặt lại mật khẩu', resendInvite: 'Gửi lại email mời', resetSent: 'Đã gửi email',
     setPassword: 'Đặt mật khẩu', deleteConfirm: 'Xóa vĩnh viễn tài khoản {{email}}? Nếu tài khoản đã có dữ liệu, hãy khóa thay vì xóa.',
     systemSub: 'Cấu hình email, tổ chức và nhật ký hệ thống', organizations: 'Tổ chức', audit: 'Nhật ký', mailServer: 'Máy chủ email (SMTP)',
-    mailNotConfigured: 'Chưa cấu hình SMTP — email đang được in ra console của server (chế độ dev). Cấu hình SMTP_HOST... trong backend/.env.deploy (hoặc .env.dev) để gửi thật — xem docs/EMAIL.md.',
+    mailNotConfigured: 'Chưa cấu hình gửi email — email đang được in ra console của server (chế độ dev). Đặt MAIL_PROVIDER=ses (Amazon SES) hoặc SMTP_HOST trong backend/.env.deploy (hoặc .env.dev) để gửi thật — xem docs/EMAIL.md.',
     verification: 'Bắt buộc xác minh email khi đăng ký', sendTest: 'Gửi thử', testSent: 'Đã gửi email thử', testLogged: 'Email thử đã được ghi ra console (chưa cấu hình SMTP)',
     emailLogs: 'Nhật ký gửi email', mailStatus: { sent: 'Đã gửi', logged: 'Console', failed: 'Lỗi' }, mailFailed: '{{n}} email gửi thất bại trong 7 ngày qua',
     orgAdmin: 'Người quản trị tổ chức', orgAdminHint: 'Chọn một tài khoản giáo viên đang hoạt động',

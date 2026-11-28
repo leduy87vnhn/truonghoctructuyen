@@ -8,7 +8,7 @@ import { config } from '../config.js';
 import { badRequest, conflict, notFound, validate } from '../lib/http.js';
 import { audit } from '../lib/util.js';
 import { issueEmailToken } from '../lib/emailTokens.js';
-import { mailConfigured, sendMail } from '../lib/mailer.js';
+import { mailConfigured, mailProviderLabel, sendMail } from '../lib/mailer.js';
 import { ensurePersonalWorkspace, passwordSchema } from './auth.js';
 
 const router = Router();
@@ -25,7 +25,7 @@ router.get('/stats', async (_req, res) => {
   );
   res.json({
     ...rows[0],
-    mail: { configured: mailConfigured(), host: config.smtp.host || null, from: config.smtp.from },
+    mail: { configured: mailConfigured(), provider: config.mail.provider, host: mailProviderLabel(), from: config.smtp.from },
     require_email_verification: config.requireEmailVerification,
   });
 });

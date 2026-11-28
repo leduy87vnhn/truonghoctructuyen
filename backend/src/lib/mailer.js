@@ -1,14 +1,41 @@
-// Gửi email qua SMTP (nodemailer). Không cấu hình SMTP_HOST => in email ra console (chế độ dev).
+// Gửi email. MAIL_PROVIDER:
+//   ses     → Amazon SES qua API (HTTPS 443). Khóa lấy từ AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY.
+//   smtp    → máy chủ SMTP bất kỳ (nodemailer).
+//   console → không gửi, in email ra log (chế độ dev).
 import nodemailer from 'nodemailer';
 import { config } from '../config.js';
 import { query } from '../db/pool.js';
 
+// Dựng thư MIME đầy đủ (HTML + text, tiêu đề tiếng Việt) bằng nodemailer, rồi gửi nguyên khối qua SES API.
+function createSesTransport() {
+  const composer = nodemailer.createTransport({ streamTransport: true, buffer: true, newline: 'windows' });
+  let clientPromise = null;
+  const getClient = () => {
+    clientPromise ??= import('@aws-sdk/client-sesv2').then(({ SESv2Client, SendEmailCommand }) => ({
+      client: new SESv2Client({ region: config.mail.sesRegion }),
+      SendEmailCommand,
+    }));
+    return clientPromise;
+  };
+  return {
+    async sendMail(message) {
+      const { client, SendEmailCommand } = await getClient();
+      const { message: raw } = await composer.sendMail(message);
+      const out = await client.send(new SendEmailCommand({
+        Content: { Raw: { Data: raw } },
+        ...(config.mail.sesConfigurationSet ? { ConfigurationSetName: config.mail.sesConfigurationSet } : {}),
+      }));
+      return { messageId: out.MessageId };
+    },
+  };
+}
+
 let transport = null;
 function getTransport() {
   if (transport) return transport;
-  if (!config.smtp.host) {
-    transport = nodemailer.createTransport({ jsonTransport: true });
-  } else {
+  if (config.mail.provider === 'ses') {
+    transport = createSesTransport();
+  } else if (config.mail.provider === 'smtp') {
     transport = nodemailer.createTransport({
       host: config.smtp.host,
       port: config.smtp.port,
@@ -16,11 +43,19 @@ function getTransport() {
       auth: config.smtp.user ? { user: config.smtp.user, pass: config.smtp.pass } : undefined,
       tls: config.smtp.allowSelfSigned ? { rejectUnauthorized: false } : undefined,
     });
+  } else {
+    transport = nodemailer.createTransport({ jsonTransport: true });
   }
   return transport;
 }
 
-export const mailConfigured = () => Boolean(config.smtp.host);
+export const mailConfigured = () => config.mail.provider !== 'console';
+
+/** Mô tả ngắn cho trang quản trị, vd. "Amazon SES (ap-southeast-1)" */
+export const mailProviderLabel = () =>
+  config.mail.provider === 'ses' ? `Amazon SES (${config.mail.sesRegion})`
+    : config.mail.provider === 'smtp' ? `SMTP ${config.smtp.host}:${config.smtp.port}`
+      : null;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -134,7 +169,14 @@ export async function sendMail({ to, template, locale = 'vi', data = {}, throwOn
   const html = layout(tpl);
   const text = [tpl.title, ...tpl.lines, tpl.button ? `${tpl.button.label}: ${tpl.button.url}` : '', tpl.footer || ''].filter(Boolean).join('\n\n');
   try {
-    await getTransport().sendMail({ from: config.smtp.from, to, subject: tpl.subject, html, text });
+    await getTransport().sendMail({
+      from: config.smtp.from,
+      to,
+      subject: tpl.subject,
+      html,
+      text,
+      ...(config.mail.replyTo ? { replyTo: config.mail.replyTo } : {}),
+    });
     const status = mailConfigured() ? 'sent' : 'logged';
     if (!mailConfigured()) console.log(`\n📧 [DEV MAIL] To: ${to}\n   Subject: ${tpl.subject}\n   ${text.replace(/\n+/g, '\n   ')}\n`);
     await query('INSERT INTO email_logs(to_email, subject, template, status) VALUES ($1,$2,$3,$4)', [to, tpl.subject, template, status]).catch(() => {});

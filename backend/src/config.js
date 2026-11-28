@@ -49,12 +49,30 @@ export const config = {
     from: env.MAIL_FROM || 'Teacher Workspace <no-reply@teacher.local>',
     allowSelfSigned: env.SMTP_ALLOW_SELF_SIGNED === 'true',
   },
+  mail: {
+    // ses  = Amazon SES qua API (HTTPS); smtp = máy chủ SMTP; console = chỉ in ra log.
+    // Để trống: dùng smtp nếu có SMTP_HOST, ngược lại console.
+    provider: (env.MAIL_PROVIDER || (env.SMTP_HOST ? 'smtp' : 'console')).toLowerCase(),
+    replyTo: env.MAIL_REPLY_TO || '',
+    sesRegion: env.AWS_REGION || env.SES_REGION || '',
+    sesConfigurationSet: env.SES_CONFIGURATION_SET || '',
+  },
   openai: {
     apiKey: env.OPENAI_API_KEY || '',
     model: env.OPENAI_MODEL || 'gpt-4o-mini',
     baseURL: env.OPENAI_BASE_URL || undefined,
   },
 };
+
+if (!['ses', 'smtp', 'console'].includes(config.mail.provider)) {
+  throw new Error(`MAIL_PROVIDER không hợp lệ: "${config.mail.provider}" (chỉ nhận ses | smtp | console)`);
+}
+if (config.mail.provider === 'ses' && !config.mail.sesRegion) {
+  throw new Error('MAIL_PROVIDER=ses cần AWS_REGION (vd. ap-southeast-1)');
+}
+if (config.mail.provider === 'smtp' && !config.smtp.host) {
+  throw new Error('MAIL_PROVIDER=smtp cần SMTP_HOST');
+}
 
 if (config.env === 'production' && (config.jwtSecret === 'dev-secret-change-me' || config.jwtSecret.length < 32)) {
   throw new Error('JWT_SECRET phải được đặt (>= 32 ký tự) khi chạy production');

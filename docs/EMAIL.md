@@ -19,11 +19,15 @@ Mọi email đều ghi vào **Quản trị hệ thống → Hệ thống → Ema
 
 | Biến | Ý nghĩa |
 |---|---|
-| `SMTP_HOST` | Máy chủ SMTP. **Để trống → không gửi thật**, nội dung email in ra log backend |
+| `MAIL_PROVIDER` | `ses` (Amazon SES qua API) · `smtp` · `console` (không gửi, in ra log). Để trống: `smtp` nếu có `SMTP_HOST`, ngược lại `console` |
+| `MAIL_FROM` | Người gửi hiển thị, ví dụ `"Teacher Workspace <no-reply@abc.vn>"` |
+| `MAIL_REPLY_TO` | Địa chỉ nhận khi người dùng bấm "Trả lời" (để trống = không đặt) |
+| `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Chỉ dùng với `MAIL_PROVIDER=ses`, xem cách E |
+| `SES_CONFIGURATION_SET` | Tùy chọn, tên Configuration Set trên SES (theo dõi bounce/complaint) |
+| `SMTP_HOST` | Máy chủ SMTP. **Để trống (và không đặt `MAIL_PROVIDER`) → không gửi thật**, nội dung email in ra log backend |
 | `SMTP_PORT` | `465` (SSL) hoặc `587` (STARTTLS) |
 | `SMTP_SECURE` | `true` cho cổng 465, `false` cho 587 / 25 / 2525 |
 | `SMTP_USER`, `SMTP_PASS` | Tài khoản đăng nhập SMTP (để trống nếu server không yêu cầu) |
-| `MAIL_FROM` | Người gửi hiển thị, ví dụ `"Teacher Workspace <no-reply@abc.vn>"` |
 | `SMTP_ALLOW_SELF_SIGNED` | `true` chỉ khi mail server nội bộ dùng chứng chỉ tự ký |
 | `REQUIRE_EMAIL_VERIFICATION` | `true`: tài khoản tự đăng ký phải bấm link xác minh mới đăng nhập được |
 | `APP_URL` | Địa chỉ web, dùng để tạo link trong email (`http://103.116.104.4:8602`) |
@@ -35,7 +39,8 @@ Mọi email đều ghi vào **Quản trị hệ thống → Hệ thống → Ema
 | **A. Chưa gửi** (để trống) | Không | — | Lúc mới cài, thử nghiệm |
 | **B. Gmail** | Không | Tốt | Ít người dùng (giới hạn ~500 thư/ngày) |
 | **C. Mail server tự dựng (Postfix)** | **Bắt buộc** | Trung bình | Đã có tên miền, VPS mở cổng 25 |
-| **D. Dịch vụ gửi mail** (SES, Brevo, SendGrid…) / Microsoft 365 | Nên có | Tốt nhất | Nhiều người dùng |
+| **D. Dịch vụ gửi mail qua SMTP** (Brevo, SendGrid…) / Microsoft 365 | Nên có | Tốt nhất | Nhiều người dùng |
+| **E. Amazon SES qua API** — **đang chọn** | **Bắt buộc** (hoặc xác minh từng địa chỉ) | Tốt nhất | Thông báo hệ thống, mọi quy mô (~0,1 USD / 1000 thư) |
 
 ### A. Chưa cấu hình (mặc định hiện tại)
 
@@ -123,6 +128,90 @@ Dùng thông tin SMTP nhà cung cấp đưa, ví dụ:
 
 Các dịch vụ này yêu cầu xác minh tên miền gửi (thêm bản ghi DNS họ cung cấp).
 
+### E. Amazon SES qua API (khuyên dùng)
+
+Backend gọi thẳng API của SES (`SendEmail`, qua HTTPS cổng 443). Không cần mail server, không cần mở cổng 25 hay 587, không cần PTR. Thư do Amazon gửi đi nên vào hộp thư chính tốt. Chỉ gửi đi; SES không cần nhận thư.
+
+#### Bước 1. Xác minh người gửi trên SES
+
+AWS Console → chọn **region** (khuyên dùng `ap-southeast-1` Singapore, gần Việt Nam nhất) → **Amazon SES → Configuration → Identities → Create identity**:
+
+- **Domain** (khuyên dùng): nhập tên miền, ví dụ `truonghoc.vn`, để nguyên **Easy DKIM, RSA 2048**. SES đưa ra **3 bản ghi CNAME**; thêm cả 3 vào DNS của tên miền. Sau vài phút đến vài giờ, trạng thái chuyển thành **Verified**. Từ đó gửi được từ mọi địa chỉ `...@truonghoc.vn`.
+- **Email address** (khi chưa có tên miền): nhập ví dụ `abc@gmail.com`, rồi bấm link xác nhận trong hộp thư. Cách này chạy được nhưng **dễ vào spam**, vì Gmail thấy thư "từ gmail.com" lại không đi qua máy chủ Gmail (DMARC). Chỉ nên dùng để thử.
+
+Nên thêm cho tên miền (trong DNS):
+
+| Loại | Tên | Giá trị | Mục đích |
+|---|---|---|---|
+| TXT | `@` | `v=spf1 include:amazonses.com ~all` | SPF (nếu đã có SPF, thêm `include:amazonses.com` vào bản ghi cũ, **không** tạo bản ghi thứ hai) |
+| TXT | `_dmarc` | `v=DMARC1; p=none; rua=mailto:<email-cua-ban>` | DMARC |
+| 3 × CNAME | do SES cung cấp | do SES cung cấp | DKIM, bắt buộc |
+
+#### Bước 2. Thoát chế độ Sandbox
+
+Tài khoản SES mới ở **Sandbox**: chỉ gửi được **tới** các địa chỉ đã xác minh, tối đa 200 thư/ngày. Để gửi cho mọi người dùng: **SES → Account dashboard → Request production access**:
+
+- Mail type: **Transactional**
+- Website URL: `http://103.116.104.4:8602` (hoặc tên miền)
+- Mô tả cách dùng, ví dụ: *"System notifications for an education web app: account verification, password reset, password-changed alerts, organization invitations. Only sent to registered users as a result of their own actions. Bounces and complaints are monitored; no marketing emails."*
+
+AWS thường duyệt trong khoảng 24 giờ. Trong lúc chờ, vẫn thử được bằng cách gửi tới địa chỉ đã xác minh ở bước 1.
+
+#### Bước 3. Tạo khóa truy cập chỉ có quyền gửi mail
+
+**IAM → Users → Create user**, ví dụ tên `truonghoc-ses-sender`, **không** cấp quyền vào Console. Gắn **inline policy** (JSON):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": ["ses:SendEmail", "ses:SendRawEmail"],
+    "Resource": "*"
+  }]
+}
+```
+
+Mở user vừa tạo → **Security credentials → Create access key** → chọn *Application running outside AWS* → lưu lại **Access key ID** và **Secret access key**. Secret chỉ hiện **một lần**.
+
+Không dùng khóa của tài khoản root hay của user quản trị. Nếu khóa này bị lộ, kẻ xấu chỉ gửi được mail chứ không đụng được vào phần khác của AWS. Khi đó vào IAM vô hiệu hóa khóa và tạo khóa mới.
+
+#### Bước 4. Cấu hình trên server
+
+Trên server, sửa trực tiếp `backend/.env.deploy` bằng `nano backend/.env.deploy`. **Không** `scp` file từ máy Windows lên, vì sẽ ghi đè mật khẩu database đang đúng. Điền:
+
+```dotenv
+MAIL_PROVIDER=ses
+AWS_REGION=ap-southeast-1
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=...
+MAIL_FROM="Truong hoc truc tuyen <no-reply@truonghoc.vn>"
+# tùy chọn: hộp thư nhận khi người dùng bấm Trả lời
+MAIL_REPLY_TO=hotro@truonghoc.vn
+```
+
+`MAIL_FROM` phải thuộc tên miền hoặc địa chỉ đã **Verified** ở bước 1, và `AWS_REGION` phải đúng region đã xác minh. Sau đó:
+
+```bash
+pm2 restart teacher-api
+pm2 logs teacher-api --lines 20 --nostream
+```
+
+Rồi gửi thử theo mục 3. Trang **Quản trị hệ thống → Hệ thống** sẽ hiện `SES Amazon SES (ap-southeast-1)`.
+
+Cập nhật code có Amazon SES lần đầu: `bash deploy/update.sh` sẽ tự cài thêm thư viện `@aws-sdk/client-sesv2`.
+
+#### Lỗi thường gặp với SES
+
+| Lỗi | Nguyên nhân / cách xử lý |
+|---|---|
+| `MAIL_PROVIDER=ses cần AWS_REGION` (backend không khởi động) | Thiếu `AWS_REGION` |
+| `The security token included in the request is invalid` | Sai `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, hoặc khóa đã bị vô hiệu |
+| `Email address is not verified. The following identities failed the check...` | Đang ở **Sandbox** và địa chỉ nhận chưa xác minh (bước 2), hoặc `MAIL_FROM` chưa xác minh / xác minh ở region khác |
+| `... is not authorized to perform: ses:SendRawEmail` | Policy IAM thiếu quyền (bước 3) |
+| `Could not load credentials from any providers` | Thiếu 2 dòng `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` |
+| `Sending paused` / `Account suspended` | Tỷ lệ thư bị trả lại hoặc bị báo spam quá cao. Xem **SES → Reputation metrics** |
+
 ## 3. Gửi thử
 
 1. Đăng nhập tài khoản quản trị hệ thống.
@@ -133,7 +222,7 @@ Các dịch vụ này yêu cầu xác minh tên miền gửi (thêm bản ghi DN
 
 | Hiện tượng | Nguyên nhân / cách xử lý |
 |---|---|
-| Nhật ký ghi trạng thái "Console" | `SMTP_HOST` đang trống — chưa gửi thật (cách A) |
+| Nhật ký ghi trạng thái "Console" | Chưa đặt `MAIL_PROVIDER` và `SMTP_HOST` — chưa gửi thật (cách A) |
 | `Invalid login` / `535` với Gmail | Chưa bật xác minh 2 bước hoặc dùng mật khẩu Gmail thay vì App Password |
 | `ETIMEDOUT` / `ECONNREFUSED` | Sai `SMTP_HOST` / `SMTP_PORT`, hoặc tường lửa (OPNsense, `ufw`) chặn kết nối ra cổng đó |
 | `self signed certificate` | Mail server nội bộ dùng chứng chỉ tự ký → `SMTP_ALLOW_SELF_SIGNED=true` |

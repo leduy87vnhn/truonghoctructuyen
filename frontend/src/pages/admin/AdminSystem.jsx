@@ -27,7 +27,7 @@ function MailPanel({ stats }) {
       <div className="card stack-sm">
         <h3 className="row"><Mail size={18} /> {t('admin.mailServer')}</h3>
         {stats.mail.configured ? (
-          <div className="small"><Badge tone="green">SMTP</Badge> {stats.mail.host} · {stats.mail.from}</div>
+          <div className="small"><Badge tone="green">{stats.mail.provider === 'ses' ? 'SES' : 'SMTP'}</Badge> {stats.mail.host} · {stats.mail.from}</div>
         ) : (
           <div className="form-error">{t('admin.mailNotConfigured')}</div>
         )}
